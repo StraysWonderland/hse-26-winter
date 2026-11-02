@@ -1,0 +1,9 @@
+build/
+.gradle/
+node_modules/
+dist/
+*.iml
+.idea/
+.env
+build-stamp.txt
+.DS_Store

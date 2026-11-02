@@ -1,0 +1,43 @@
+# Rendered at container start by the nginx image entrypoint (envsubst on defined env vars only).
+server {
+    listen       8080;
+    server_name  _;
+    root         /usr/share/nginx/html;
+
+    # Resolve upstream names per request (cached 10 s), not once at startup:
+    # - nginx starts even if a backend is not running yet (502 until it is)
+    # - scaled replicas are picked up without restarting nginx
+    # 127.0.0.11 = Docker's embedded DNS (user-defined networks). Kubernetes: kube-dns IP + FQDN service URLs.
+    resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+
+    location /api/todos {
+        set $todo_backend ${TODO_SERVICE_URL};
+        proxy_pass         $todo_backend;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /api/activity {
+        set $activity_backend ${ACTIVITY_SERVICE_URL};
+        proxy_pass         $activity_backend;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # Runtime config: same image, different environment.
+    location = /config.json {
+        default_type application/json;
+        add_header   Cache-Control no-store;
+        return 200 '{ "version": "${APP_VERSION}" }';
+    }
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location / {
+        try_files $uri /index.html;
+    }
+}

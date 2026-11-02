@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: activity-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/activity}
+    username: ${DB_USER:activity}
+    password: ${DB_PASSWORD:activity}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  port: ${PORT:8082}              # 8082 locally; containers set PORT=8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  version: ${APP_VERSION:dev}
+  nats-url: ${NATS_URL:nats://localhost:4222}
+  nats-subject: ${NATS_SUBJECT:todo.>}
+  # Queue group: replicas share the stream, each event is handled by exactly one replica.
+  nats-queue-group: ${NATS_QUEUE_GROUP:activity-service}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: json
+logging:
+  structured:
+    format:
+      console: ecs

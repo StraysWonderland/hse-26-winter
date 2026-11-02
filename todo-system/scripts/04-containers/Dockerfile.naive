@@ -1,0 +1,16 @@
+# Deliberately bad. Used to contrast with services/todo-service/Dockerfile:
+#  - full JDK + Gradle image at runtime (size, attack surface)
+#  - COPY . . before the build: any source change invalidates everything, deps re-downloaded
+#  - runs as root
+#  - wrapper script without `exec`: sh is PID 1, SIGTERM never reaches the JVM -> SIGKILL after 10 s
+# Build: docker build -f scripts/04-containers/Dockerfile.naive -t todo-service:naive services/todo-service
+FROM gradle:9.4-jdk21
+WORKDIR /app
+COPY . .
+RUN gradle bootJar --no-daemon
+COPY <<'SCRIPT' /app/start.sh
+#!/bin/sh
+echo "starting todo-service"
+java -jar build/libs/application.jar
+SCRIPT
+CMD ["/bin/sh", "/app/start.sh"]

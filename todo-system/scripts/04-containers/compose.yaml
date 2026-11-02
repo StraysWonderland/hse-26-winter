@@ -1,0 +1,33 @@
+# Showcase 4: exactly the containers from showcases 2 and 3, written down once.
+# Run from this directory: docker compose up -d --build
+# The full system (separate networks, health checks, NATS, activity-service) is ../../compose.yaml (showcase 5).
+name: todo-basic
+
+services:
+  postgres:                              # docker run --name postgres -e ... -v pgdata:... postgres:17-alpine
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: todo
+      POSTGRES_PASSWORD: todo
+      POSTGRES_DB: todo
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  todo-service:                          # docker build ... && docker run --network ... -e DB_URL=...
+    build: ../../services/todo-service
+    image: todo-service:1.0
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/todo   # service name = DNS name
+    depends_on: [postgres]
+    restart: on-failure                  # postgres may not accept connections yet on first start
+
+  frontend:
+    build: ../../services/frontend
+    image: todo-frontend:1.0
+    ports:
+      - "8080:8080"
+    depends_on: [todo-service]
+
+volumes:
+  pgdata:                                # becomes todo-basic_pgdata
+# No networks: section -> Compose creates one network (todo-basic_default) for all services.

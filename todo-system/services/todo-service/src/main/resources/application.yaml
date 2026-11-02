@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: todo-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/todo}
+    username: ${DB_USER:todo}
+    password: ${DB_PASSWORD:todo}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # schema is owned by Flyway
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  port: ${PORT:8081}              # 8081 locally; containers set PORT=8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true             # /actuator/health/liveness and /readiness
+
+app:
+  version: ${APP_VERSION:dev}
+  nats-url: ${NATS_URL:nats://localhost:4222}
+  chaos:
+    failure-rate: ${CHAOS_FAILURE_RATE:0}
+    latency-ms: ${CHAOS_LATENCY_MS:0}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: json
+logging:
+  structured:
+    format:
+      console: ecs

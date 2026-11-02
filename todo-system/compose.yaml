@@ -1,0 +1,119 @@
+name: todo-system
+
+x-service-env: &service-env
+  APP_VERSION: ${APP_VERSION:-0.1.0}
+  NATS_URL: nats://nats:4222
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      TODO_DB_PASSWORD: ${TODO_DB_PASSWORD:-todo}
+      ACTIVITY_DB_PASSWORD: ${ACTIVITY_DB_PASSWORD:-activity}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"          # inner loop: services via ./gradlew bootRun
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+
+  nats:
+    image: nats:2.11-alpine
+    command: ["--http_port", "8222"]
+    ports:
+      - "127.0.0.1:4222:4222"          # client
+      - "127.0.0.1:8222:8222"          # monitoring: http://localhost:8222
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+
+  todo-service:
+    build:
+      context: ./services/todo-service
+      args:
+        APP_VERSION: ${APP_VERSION:-0.1.0}
+    image: todo-system/todo-service:${APP_VERSION:-0.1.0}
+    environment:
+      <<: *service-env
+      DB_URL: jdbc:postgresql://postgres:5432/todo
+      DB_USER: todo
+      DB_PASSWORD: ${TODO_DB_PASSWORD:-todo}
+      CHAOS_FAILURE_RATE: ${CHAOS_FAILURE_RATE:-0}
+      CHAOS_LATENCY_MS: ${CHAOS_LATENCY_MS:-0}
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_healthy }
+    ports:
+      - "127.0.0.1::8080"              # ephemeral host port -> scaling works; find it: docker compose port todo-service 8080
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+    networks: [backend, frontend]
+
+  activity-service:
+    build:
+      context: ./services/activity-service
+      args:
+        APP_VERSION: ${APP_VERSION:-0.1.0}
+    image: todo-system/activity-service:${APP_VERSION:-0.1.0}
+    environment:
+      <<: *service-env
+      DB_URL: jdbc:postgresql://postgres:5432/activity
+      DB_USER: activity
+      DB_PASSWORD: ${ACTIVITY_DB_PASSWORD:-activity}
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_healthy }
+    ports:
+      - "127.0.0.1::8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+    networks: [backend, frontend]
+
+  frontend:
+    build:
+      context: ./services/frontend
+      args:
+        APP_VERSION: ${APP_VERSION:-0.1.0}
+    image: todo-system/frontend:${APP_VERSION:-0.1.0}
+    environment:
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      TODO_SERVICE_URL: http://todo-service:8080
+      ACTIVITY_SERVICE_URL: http://activity-service:8080
+    depends_on:
+      todo-service: { condition: service_healthy }
+      activity-service: { condition: service_healthy }
+    ports:
+      - "8080:8080"
+    networks: [frontend]               # cannot reach postgres or nats
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  pgdata:
+
