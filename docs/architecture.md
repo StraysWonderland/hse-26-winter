@@ -1,5 +1,7 @@
 # Architecture
 
+![TODO system application and Kubernetes infrastructure](diagrams/todo-system-kubernetes.svg)
+
 ## Components and flows
 
 ```mermaid

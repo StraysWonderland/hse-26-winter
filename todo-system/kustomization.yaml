@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - k8s/namespace.yaml
+  - infra/postgres/k8s
+  - infra/nats/k8s
+  - services/todo-service/k8s
+  - services/activity-service/k8s
+  - services/frontend/k8s
+

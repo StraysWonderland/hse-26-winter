@@ -96,7 +96,7 @@ export default function App() {
 
       {error && (
         <div className="alert" role="alert">
-          <strong>{error}</strong> The page retries every {POLL_MS / 1000} s. Check <code>docker compose ps</code> if
+          <strong>{error}</strong> The page retries every {POLL_MS / 1000} s. Check the workload status and logs if
           it persists.
         </div>
       )}

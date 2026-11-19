@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: todo
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: todo-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/part-of: todo-system
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: frontend
+          image: todo-system/frontend:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: APP_VERSION
+              value: 0.1.0
+            - name: TODO_SERVICE_URL
+              # nginx resolves variable-based proxy targets itself, so use the
+              # full Kubernetes DNS name instead of relying on search suffixes.
+              value: http://todo-service.todo.svc.cluster.local:8080
+            - name: ACTIVITY_SERVICE_URL
+              value: http://activity-service.todo.svc.cluster.local:8080
+            - name: NGINX_RESOLVER
+              value: 10.96.0.10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+

@@ -3,6 +3,8 @@
 A small but real distributed system used as the running example across the course
 (containers → Kubernetes → CI/CD → resilience → observability) and as the base for student projects.
 
+![TODO system application and Kubernetes infrastructure](../docs/diagrams/todo-system-kubernetes.svg)
+
 ```
 browser ──► frontend (nginx + React) ──► todo-service ──► Postgres (db: todo)
                     │                         │
@@ -18,7 +20,7 @@ browser ──► frontend (nginx + React) ──► todo-service ──► Post
 | Postgres 17 | one server, one database per service | state, volumes, StatefulSet later |
 | NATS 2.11 (core) | pub/sub | event-driven communication |
 
-Details: [docs/architecture.md](docs/architecture.md). Student projects: [docs/student-projects.md](docs/student-projects.md).
+Details: [architecture notes](../docs/architecture.md). Student projects: [project ideas](../docs/student-projects.md).
 
 ## Quick start
 
@@ -81,9 +83,29 @@ docker compose up -d --wait postgres nats
 (cd services/frontend && npm run dev)                 # :5173, proxies /api to 8081/8082
 ```
 
+## Kubernetes deployment
+
+Kubernetes resources are owned by the component they deploy:
+
+- `services/<service>/k8s/` contains that service's Deployment and Service,
+- `infra/postgres/k8s/` contains database configuration, storage and networking,
+- `infra/nats/k8s/` contains the NATS message broker Deployment and Service,
+- the root `kustomization.yaml` composes the complete application.
+
+After preparing a cluster and making the images available to it, deploy from this directory:
+
+```bash
+kubectl apply -k .
+kubectl -n todo get all
+```
+
+NATS is the internal event bus: todo-service publishes task changes and activity-service consumes them to build
+the activity feed. It lives under `infra/` because it is a third-party runtime dependency, like Postgres.
+
 ## Demos
 
-- [scripts/04-containers](scripts/04-containers/README.md) — lecture 04 Containers: student guide; presenter guide in [PRESENTER.md](scripts/04-containers/PRESENTER.md)
+- [scripts/04-containers](scripts/04-containers/README.md) — lecture 04 Containers: images, networks, volumes and Compose
+- [scripts/07-kubernetes](scripts/07-kubernetes/README.md) — lecture 07 Kubernetes: Pods, Deployments, Services, configuration, persistent state, scaling and rollouts
 
 ## Status and known gaps
 
